@@ -1,0 +1,310 @@
+---
+title: "House Price EDA"
+output:
+  pdf_document: default
+  html_document: default
+---
+###### by Urvang Patel
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+library(GGally)
+```
+
+
+The data set that I am using here is a data of prices of the house in a area. The data set contains some necessary variables that a person looks before buying a house.I will try to explore this data set and try to understand what all factors affects mainly in deciding the price of a house, using plots and statistics.
+
+## Basic Statistics of Data
+
+First load the file using the read.csv function, and find the basic statistics of all the attributes such as mean, median, mode, etc.
+
+```{r echo=FALSE}
+setwd("/Users/Urvang/Downloads/Analytics/House Price EDA")
+house<-read.csv("kc_house_data.csv")
+str(house)
+```
+
+There are 14 int, 6 num and 1 factor data types in the data set.
+
+```{r echo=FALSE}
+summary(house)
+```
+
+Observations from the summary are:
+
+  *There might be a error in bedrooms attribut since max numbers shown is 33.
+  
+  *Less than 25% of the houses were renovated.
+  
+  *Less than 25% houses have a view greater than 1.
+  
+  *There are total 200 zipcodes in the area.
+  
+
+## Univariate Analysis
+
+#### Price Histogram
+
+The very first question that comes to mind is that, how is the price variable distributed? TO answer this question I will take the help of ggplot2 library and plot a histogram of the price variable. THe plot is shown below.
+
+```{r echo=FALSE, warning=FALSE}
+qplot(price,data=house, main="Price Histogram",xlab="Price",ylab="Count")
+```
+
+The histogram of the price variable is not giving much information. We can see that all the data is accumulate towards the lower end of the price axis, but the axis is streched to a higher price value. The reason behind this is that there are outliars present in the data. The outliars drags the mean and makes it higher than the orignal. Due to the outliars the houses with lower prices are not visible clearly.   
+
+There is a possiblity of many outliars present in the data. As no information is visible on the axis. TO observe the price distribution try limiting the maximum value of the price axis. Doing that might give more information.
+
+The histogeam of price variable with axis limited to 3 million is shown below.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+qplot(price,data=house,main="Price Histogram",xlab="Price",ylab="Count")+
+  scale_x_continuous(limits = c(0,3000000))
+```
+
+The histogram I got is a skewed distribution meaning that the mean value is greather than the median value. It can be seen that majority of the houses cost below 1 million.
+
+Still there is a long tail at the right end, so it would be a better option to take log transform of the data.
+
+```{r echo=FALSE}
+qplot(price, data = house,main="Log Transformed Price Histogram",xlab="Price",ylab="Count")+scale_x_log10()
+```
+
+As expected we get a normal distribution after the log transform of the price data.
+
+#### Other Attributes
+
+Now, the next question that comes is how are some other continous variables distributed. I will plot the histogram for some variables and also limit the axis to observe the plot properly.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p1<-qplot(sqft_living,data = house,main="Living Area Histogram",xlab="Living Area",ylab="Count")+
+  scale_x_continuous(limits = c(0,7500))
+p2<-qplot(sqft_lot,data = house,main="Lot Area Histogram",xlab="Lot Area",ylab="Count")+
+  scale_x_continuous(limits = c(0,50000))
+p3<-qplot(sqft_above,data = house,main="Living Area Above Ground Histogram",xlab="Living Area Above Ground",ylab="Count")+
+  scale_x_continuous(limits = c(0,6000))
+p4<-qplot(sqft_basement,data = house,main="Basement Area Histogram",xlab="Basement Area",ylab="Count")+
+  scale_x_continuous(limits = c(0,2000))
+p5<-qplot(sqft_living15,data = house,main="Living Area 15  Histogram",xlab="Living Area 15",ylab="Count")
+p6<-qplot(sqft_lot15,data = house,main="Lot Area 15 Histogram",xlab="Lot Area 15",ylab="Count")+
+  scale_x_continuous(limits = c(0,50000))
+grid.arrange(p1,p2,p3,p4,p5,p6)
+```
+
+All the plots above are skwed and have a long tail suggesting that there are numerous number of outliars in the data set.
+
+
+## Bivariate Analysis
+
+#### Really 33 rooms?
+
+The very first thing I want to check is if the house whith 33 bedrooms is a wrong input or outliar. I will check this by plotting living area against bedrooms. The expected living of the house with 33 bedrooms should be greter than every other house since it will require more area. 
+
+```{r echo=FALSE}
+ggplot(aes(sqft_living,bedrooms),data=house)+
+  geom_point()+
+  labs(title="Bedrooms vs Living Area",
+        x ="Living Area", y = "Number of Bedrooms")
+```
+
+As it can be seen in the above scatter plot that the house with 33 rooms has a living are less than 2500 which cannot happen. So the entry of house with 33 rooms is not correct.
+
+#### Scatter plot Matrix
+
+Next I wil try plotting a scatter plot matrix which helps in plotting all the attributes against the price attribute in single figure. Also some other correlations will be observed as every attribute is plotted against one other.
+
+```{r echo=FALSE, fig.height=30, fig.width=19}
+ggpairs(house,columns=3:21)
+```
+
+
+Observations from the above matrix are:
+
+  *Some attribute which are highly correlated to the price attribute are:
+    +sqft_living
+    +sqft_living15
+    +sqft_above
+    +sqft_basement
+    +Bedrooms and Bathrooms
+    +Grade
+    
+  *It can also be seen that as the grade is increasing the price of the houses is also increasing.
+  
+  *Some other expected correlations of attributes can also be observed like 
+    +bedroom vs bathrooms.
+    +sqft_living vs bedroom and bathroom.
+    +sqft_living vs grade.
+    +And other few such relations.
+  
+  *Also there are many outliars present.
+  
+  *One other interesting observation is that the houses on higher latitude(47.8) and houses with lower         longitude(-122.50) have higher prices.
+  
+  *A pattern is seen in sqft_living and sqft_basement. It is because the basement area is generally the same as living area.
+
+Further investigations from the above plot:
+
+  *I wish to check sqft_lot and lot15 attributes against price as the graphs above are not very clear.
+  
+  *The correlation coeff shows that there is a relation in price against view, lets further check it out.
+
+
+#### Checking Lot area attribute
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+v1<-ggplot(aes(sqft_lot,price),data=house)+
+  geom_point(alpha=1/20)+
+  geom_smooth()+
+  ylim(c(0,4000000))+
+  xlim(c(0,300000))+
+  labs(title="Lot Area vs Price",x ="Price", y = "Lot Area")
+v2<-ggplot(aes(sqft_lot15,price),data=house)+
+  geom_point(alpha=1/20)+
+  geom_smooth()+
+  ylim(c(0,4000000))+
+  xlim(c(0,300000))+
+  labs(title="Lot Area 15 vs Price",x ="Price", y = "Lot Area 15")
+grid.arrange(v1,v2)
+```
+
+I have removed many higher values from the plot, considering them as outliars. Doing this helped me observe the graph closely.
+We can see that even thought the lot size is increasing the price is not changing, it remains low, and for some lower value of lot price is high. From the above plots it can be said that both the lot and lot15 attribute does not seem to be correlated strongly to the price attribute.
+
+
+#### Checking view attribute against price
+
+Next, I will check the correlation betwwn view and price attribute. 
+
+```{r echo=FALSE}
+ggplot(aes(view,price),data=house)+geom_point()+
+  labs(title="View vs Price", x ="Price", y = "View")
+```
+
+The scatter plot here does not show much correlation, let's try some other kind of plot.
+
+```{r echo=FALSE}
+ggplot(aes(group=view,view,price),data=house)+geom_boxplot()+
+  labs(title="View vs Price",
+        x ="Price", y = "View")
+```
+
+here now box plot revels the correlation betwwen price and view attribute. It can be seen that as the view rating increases the price increases.
+
+#### Year built and renovated
+
+Many houses are not renovated and some few are only revovated. I created a new attribute named renovated containing value 0 for no renovation and value 1 if renovation is done.
+
+I also created groups of the yr_built attribute into catagories.
+
+```{r echo=FALSE}
+cond<-house$yr_renovated>0
+house$renovated<-ifelse(cond, 1,0)
+house$year_built_groups<-cut(house$yr_built,breaks=c(1900,1925,1950,1975,2000,2015))
+names(house)
+```
+
+```{r echo=FALSE}
+ggplot(aes(group=renovated,renovated,price),data=house)+geom_boxplot()+
+  labs(title="Renoveted vs Price",
+        x ="Renovated(Yes/NO)", y = "Price")
+```
+
+```{r echo=FALSE}
+ggplot(aes(group=year_built_groups,year_built_groups,price),data=house)+geom_boxplot()+
+  labs(title="Year Built vs Price",
+        x ="Price", y = "Year Built Groups")
+```
+
+No strong relation with year built was found.
+
+## Multivariate Analysis
+
+####Dose year built affect other attributes?
+
+Let's check how year built is affecting all the other attributes in the data set.
+
+
+```{r echo=FALSE}
+ggplot(aes(sqft_basement,price),data=subset(house, !is.na(year_built_groups)))+
+  geom_point(aes(color=year_built_groups))+
+  labs(title="Basement Area vs Price colored with Year Built",
+        x ="Basement Area", y = "Price")
+```
+
+From the plot it can be said that very house in older times were built without a basement. The line at 0 is filled with the houses built after 2000. Also many older houses have more basement are compared to newer houses.
+
+```{r echo=FALSE}
+ggplot(aes(yr_built,price),data=house)+geom_point(aes(color=floors))+
+  labs(title="Year BUilt vs Price colored by number of Floors",
+        x ="Year Built", y = "Price")
+```
+
+We can see that newer houses have miltiple floors while older houses didn't have many floors.
+
+
+#### Grade or Condition
+
+```{r echo=FALSE}
+m1<-ggplot(aes(yr_built,price),data=house)+geom_point(aes(color=grade))+
+  labs(title="Price vs Year Built", x ="Year Built", y = "Price")
+m2<-ggplot(aes(yr_built,price),data=house)+geom_point(aes(color=condition))+
+  labs(title="Price vs Year Built",x ="Year Built", y = "Price")
+grid.arrange(m1,m2)
+```
+
+It seems that grade and conditions are same. Lets further check this out.
+
+```{r}
+ggplot(aes(condition,grade,group=condition),data = house)+geom_boxplot()+
+  labs(title="Grade vs Condition",
+        x ="Condition", y = "Grade")
+```
+
+From the above plot we can see that at first grade increses with increase in condition but later there is no perticular trend. They both cannot be considered same.
+
+#### Longitude and Latitude
+
+```{r echo=FALSE}
+ggplot(aes(lat,price),data=house)+geom_point(aes(color=grade))+
+  labs(title="Price vs Lattitude",
+        x ="Lattitude", y = "Price")
+```
+
+```{r echo=FALSE}
+ggplot(aes(long,price),data=house)+geom_point(aes(color=grade))+
+  labs(title="Price vs Longitude",
+        x ="Longitude", y = "Price")
+```
+
+```{r echo=FALSE}
+ggplot(aes(zipcode,price),data=house)+geom_point(aes(color=grade))+
+  labs(title="Price vs Zip COde",
+        x ="Zip Codes", y = "Price")
+```
+
+These plots just show that higher prizes of houses on some longitude, latitude and zip codes have higher grades.
+
+
+## Conclusion
+
+From the above process of explonatory data analysis it can be said taht the price attribute is highly dependent on various other attributes. 
+
+Some of the attributes such as living area, basement area, grade of the house, floors and number of rooms are highly correltaed to the price, with a pearson coefficient grater than 0.4.
+
+Attributes such as lot area and year built are not related to the price of the house.
+
+The next step after this is to perform hypothesis testing and then finally creating a predictive model.
+
+
+
+
+
+
+
+
+
+
+
+
+
